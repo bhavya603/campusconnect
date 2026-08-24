@@ -138,6 +138,14 @@ const otpSchema = new mongoose.Schema(
       required: true,
     },
 
+    // 'register' = normal student sign-up OTP
+    // 'admin'    = admin login OTP (separate flow, separate whitelist)
+    purpose: {
+      type: String,
+      enum: ['register', 'admin'],
+      default: 'register',
+    },
+
     createdAt: {
       type: Date,
       default: Date.now,
@@ -147,6 +155,117 @@ const otpSchema = new mongoose.Schema(
 );
 
 const OTP = mongoose.model('OTP', otpSchema);
+
+// ==========================================
+// 4. FRIEND REQUEST SCHEMA
+// ==========================================
+
+const friendRequestSchema = new mongoose.Schema(
+  {
+    from: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+
+    to: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+
+    status: {
+      type: String,
+      enum: ['pending', 'accepted', 'rejected'],
+      default: 'pending',
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+const FriendRequest = mongoose.model(
+  'FriendRequest',
+  friendRequestSchema
+);
+
+// ==========================================
+// 5. MESSAGE SCHEMA
+// ==========================================
+
+const messageSchema = new mongoose.Schema(
+  {
+    from: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+
+    to: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+
+    text: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+const Message = mongoose.model('Message', messageSchema);
+
+// ==========================================
+// ADMIN WHITELIST
+// ==========================================
+//
+// Only these 5 exact email addresses are allowed to ever
+// authenticate as admin. Anyone else attempting admin login,
+// even with a valid registered account, is rejected outright.
+//
+// ==========================================
+
+const ADMIN_WHITELIST = [
+  {
+    name: 'Asmita Bhowmick',
+    rollNo: '2561078',
+    email: 'asmita.bhowmick.aiml29@heritageit.edu.in',
+  },
+  {
+    name: 'Bhavya Jain',
+    rollNo: '2561070',
+    email: 'bhavya.jain.aiml29@heritageit.edu.in',
+  },
+  {
+    name: 'Tamoghana Bose',
+    rollNo: '2561073',
+    email: 'tamoghana.bose.aiml29@heritageit.edu.in',
+  },
+  {
+    name: 'Monish Mandal',
+    rollNo: '2561071',
+    email: 'monish.mandal.aiml29@heritageit.edu.in',
+  },
+  {
+    name: 'Arshi Azmi',
+    rollNo: '2561051',
+    email: 'arshi.azmi.aiml29@heritageit.edu.in',
+  },
+];
+
+function isAdminWhitelisted(email) {
+  const normalized = (email || '').trim().toLowerCase();
+
+  return ADMIN_WHITELIST.some(
+    (entry) => entry.email.toLowerCase() === normalized
+  );
+}
 
 // ==========================================
 // EMAIL TRANSPORTER
@@ -604,6 +723,456 @@ app.post('/api/auth/login', async (req, res) => {
 
     res.status(500).json({
       message: 'Login request failed.',
+      error: error.message,
+    });
+  }
+});
+
+// ==========================================
+// STUDENT DIRECTORY ROUTES
+// ==========================================
+
+// GET all verified students except the requesting user,
+// annotated with the friend/request status between them.
+app.get('/api/users/:currentUserId', async (req, res) => {
+  try {
+    const { currentUserId } = req.params;
+
+    const users = await User.find({
+      _id: { $ne: currentUserId },
+      status: 'verified',
+    }).select('-password');
+
+    const requests = await FriendRequest.find({
+      $or: [
+        { from: currentUserId },
+        { to: currentUserId },
+      ],
+    });
+
+    const usersWithStatus = users.map((user) => {
+      const relevant = requests.find(
+        (r) =>
+          (r.from.toString() === currentUserId &&
+            r.to.toString() === user._id.toString()) ||
+          (r.to.toString() === currentUserId &&
+            r.from.toString() === user._id.toString())
+      );
+
+      let connectionStatus = 'none';
+
+      if (relevant) {
+        if (relevant.status === 'accepted') {
+          connectionStatus = 'friends';
+        } else if (relevant.status === 'pending') {
+          connectionStatus =
+            relevant.from.toString() === currentUserId
+              ? 'pending_sent'
+              : 'pending_received';
+        }
+      }
+
+      return {
+        ...user.toObject(),
+        connectionStatus,
+      };
+    });
+
+    res.status(200).json(usersWithStatus);
+  } catch (error) {
+    console.error('Fetch Users Error:', error);
+
+    res.status(500).json({
+      message: 'Failed to fetch student directory.',
+      error: error.message,
+    });
+  }
+});
+
+// ==========================================
+// FRIEND REQUEST ROUTES
+// ==========================================
+
+// SEND a friend request
+app.post('/api/requests/send', async (req, res) => {
+  try {
+    const { fromId, toId } = req.body;
+
+    if (!fromId || !toId) {
+      return res.status(400).json({
+        message: 'fromId and toId are required.',
+      });
+    }
+
+    if (fromId === toId) {
+      return res.status(400).json({
+        message: 'You cannot send a request to yourself.',
+      });
+    }
+
+    const existing = await FriendRequest.findOne({
+      $or: [
+        { from: fromId, to: toId },
+        { from: toId, to: fromId },
+      ],
+    });
+
+    if (existing) {
+      return res.status(400).json({
+        message: 'A request already exists between these users.',
+      });
+    }
+
+    const request = await FriendRequest.create({
+      from: fromId,
+      to: toId,
+      status: 'pending',
+    });
+
+    res.status(201).json(request);
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to send request.',
+      error: error.message,
+    });
+  }
+});
+
+// CANCEL a pending, outgoing friend request
+app.post('/api/requests/cancel', async (req, res) => {
+  try {
+    const { fromId, toId } = req.body;
+
+    await FriendRequest.deleteOne({
+      from: fromId,
+      to: toId,
+      status: 'pending',
+    });
+
+    res.status(200).json({
+      message: 'Request cancelled.',
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to cancel request.',
+      error: error.message,
+    });
+  }
+});
+
+// GET all pending requests received by a user
+app.get('/api/requests/incoming/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const requests = await FriendRequest.find({
+      to: userId,
+      status: 'pending',
+    }).populate('from', '-password');
+
+    res.status(200).json(requests);
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to fetch incoming requests.',
+      error: error.message,
+    });
+  }
+});
+
+// ACCEPT or REJECT a friend request
+app.post('/api/requests/respond', async (req, res) => {
+  try {
+    const { requestId, action } = req.body;
+
+    if (!['accept', 'reject'].includes(action)) {
+      return res.status(400).json({
+        message: 'Invalid action.',
+      });
+    }
+
+    const request = await FriendRequest.findById(requestId);
+
+    if (!request) {
+      return res.status(404).json({
+        message: 'Request not found.',
+      });
+    }
+
+    if (action === 'accept') {
+      request.status = 'accepted';
+      await request.save();
+    } else {
+      await FriendRequest.deleteOne({ _id: requestId });
+    }
+
+    res.status(200).json({
+      message:
+        action === 'accept'
+          ? 'Request accepted.'
+          : 'Request rejected.',
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to respond to request.',
+      error: error.message,
+    });
+  }
+});
+
+// GET all accepted friends of a user (chat-eligible contacts)
+app.get('/api/friends/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const accepted = await FriendRequest.find({
+      status: 'accepted',
+      $or: [{ from: userId }, { to: userId }],
+    })
+      .populate('from', '-password')
+      .populate('to', '-password');
+
+    const friends = accepted.map((r) => {
+      const friend =
+        r.from._id.toString() === userId ? r.to : r.from;
+
+      return friend;
+    });
+
+    res.status(200).json(friends);
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to fetch friends list.',
+      error: error.message,
+    });
+  }
+});
+
+// ==========================================
+// CHAT / MESSAGE ROUTES
+// ==========================================
+
+// GET the full conversation between two users
+// (only allowed if they are accepted friends)
+app.get(
+  '/api/messages/:userId1/:userId2',
+  async (req, res) => {
+    try {
+      const { userId1, userId2 } = req.params;
+
+      const areFriends = await FriendRequest.findOne({
+        status: 'accepted',
+        $or: [
+          { from: userId1, to: userId2 },
+          { from: userId2, to: userId1 },
+        ],
+      });
+
+      if (!areFriends) {
+        return res.status(403).json({
+          message:
+            'You can only chat with accepted connections.',
+        });
+      }
+
+      const messages = await Message.find({
+        $or: [
+          { from: userId1, to: userId2 },
+          { from: userId2, to: userId1 },
+        ],
+      }).sort({ createdAt: 1 });
+
+      res.status(200).json(messages);
+    } catch (error) {
+      res.status(500).json({
+        message: 'Failed to fetch messages.',
+        error: error.message,
+      });
+    }
+  }
+);
+
+// SEND a message (only allowed between accepted friends)
+app.post('/api/messages/send', async (req, res) => {
+  try {
+    const { fromId, toId, text } = req.body;
+
+    if (!fromId || !toId || !text || !text.trim()) {
+      return res.status(400).json({
+        message: 'fromId, toId and text are required.',
+      });
+    }
+
+    const areFriends = await FriendRequest.findOne({
+      status: 'accepted',
+      $or: [
+        { from: fromId, to: toId },
+        { from: toId, to: fromId },
+      ],
+    });
+
+    if (!areFriends) {
+      return res.status(403).json({
+        message:
+          'You can only message accepted connections.',
+      });
+    }
+
+    const message = await Message.create({
+      from: fromId,
+      to: toId,
+      text: text.trim(),
+    });
+
+    res.status(201).json(message);
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to send message.',
+      error: error.message,
+    });
+  }
+});
+
+// ==========================================
+// ADMIN AUTHENTICATION ROUTES
+// ==========================================
+//
+// Two-step, whitelist-only admin login:
+//   1) /api/admin/send-otp   -> checks email is one of the
+//      5 whitelisted admins AND has a registered account,
+//      then emails a one-time OTP.
+//   2) /api/admin/verify     -> checks the OTP AND the
+//      account password before granting admin access.
+//
+// The user's role in the database is NOT changed by this -
+// they stay a normal 'student' record. Admin access is only
+// granted for that login session on the frontend.
+// ==========================================
+
+app.post('/api/admin/send-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        message: 'Email is required.',
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!isAdminWhitelisted(normalizedEmail)) {
+      return res.status(403).json({
+        message:
+          'This email is not authorized for admin access.',
+      });
+    }
+
+    const existingUser = await User.findOne({
+      email: normalizedEmail,
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({
+        message:
+          'No registered student account found for this email. Please register a normal account first.',
+      });
+    }
+
+    const generatedOTP = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
+
+    await OTP.deleteMany({
+      email: normalizedEmail,
+      purpose: 'admin',
+    });
+
+    await OTP.create({
+      email: normalizedEmail,
+      otp: generatedOTP,
+      purpose: 'admin',
+    });
+
+    await sendOTPEmail(normalizedEmail, generatedOTP);
+
+    res.status(200).json({
+      message:
+        'Admin OTP has been dispatched to your Heritage email address.',
+    });
+  } catch (error) {
+    console.error('Admin Send OTP Error:', error);
+
+    res.status(500).json({
+      message: 'Failed to generate admin OTP.',
+      error: error.message,
+    });
+  }
+});
+
+app.post('/api/admin/verify', async (req, res) => {
+  try {
+    const { email, otp, password } = req.body;
+
+    if (!email || !otp || !password) {
+      return res.status(400).json({
+        message: 'Email, OTP and password are required.',
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!isAdminWhitelisted(normalizedEmail)) {
+      return res.status(403).json({
+        message:
+          'This email is not authorized for admin access.',
+      });
+    }
+
+    const record = await OTP.findOne({
+      email: normalizedEmail,
+      otp: otp.trim(),
+      purpose: 'admin',
+    });
+
+    if (!record) {
+      return res.status(400).json({
+        message: 'Invalid or expired OTP code.',
+      });
+    }
+
+    await OTP.deleteMany({
+      email: normalizedEmail,
+      purpose: 'admin',
+    });
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+      password,
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        message: 'Incorrect password.',
+      });
+    }
+
+    const userResponse = user.toObject();
+
+    delete userResponse.password;
+
+    // Grant admin role for this session only
+    // (does not persist to the database)
+    userResponse.role = 'admin';
+
+    res.status(200).json({
+      message: 'Admin login successful.',
+      user: userResponse,
+    });
+  } catch (error) {
+    console.error('Admin Verify Error:', error);
+
+    res.status(500).json({
+      message: 'Admin verification failed.',
       error: error.message,
     });
   }
