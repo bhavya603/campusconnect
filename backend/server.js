@@ -274,12 +274,22 @@ function isAdminWhitelisted(email) {
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 465,
-  secure: true,
-  family:4,
+  secure: true, // SSL — more reliable than STARTTLS (587) on flaky cloud networks
+
   auth: {
     user: process.env.EMAIL_USER || '',
-    pass: process.env.EMAIL_PASS || ''
-  }
+    pass: process.env.EMAIL_PASS || '',
+  },
+
+  // Generous timeouts so a slow/cold Render network doesn't
+  // give up before Gmail even responds
+  connectionTimeout: 20000,
+  greetingTimeout: 20000,
+  socketTimeout: 20000,
+
+  // Reuse connections instead of opening a fresh one every time
+  pool: true,
+  maxConnections: 3,
 });
 
 // ==========================================
@@ -339,7 +349,7 @@ async function sendOTPEmail(targetEmail, otpCode) {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
+    await sendMailWithRetry(mailOptions);
   } else {
     // Local development fallback
     console.log('\n========================================');
@@ -347,6 +357,35 @@ async function sendOTPEmail(targetEmail, otpCode) {
       `[LOCAL DEV OTP] Email: ${targetEmail} | OTP: ${otpCode}`
     );
     console.log('========================================\n');
+  }
+}
+
+// ==========================================
+// SEND MAIL WITH ONE AUTOMATIC RETRY
+// ==========================================
+//
+// Render's free tier occasionally has a flaky/slow outbound
+// connection to Gmail's SMTP servers, causing an intermittent
+// ETIMEDOUT on the first attempt. Retrying once, a couple of
+// seconds later, resolves the vast majority of these cases
+// without the person having to click "Send OTP" again.
+// ==========================================
+
+async function sendMailWithRetry(mailOptions, attempt = 1) {
+  try {
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    if (attempt >= 2) {
+      throw error;
+    }
+
+    console.warn(
+      `Email send attempt ${attempt} failed (${error.message}). Retrying...`
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    return sendMailWithRetry(mailOptions, attempt + 1);
   }
 }
 
