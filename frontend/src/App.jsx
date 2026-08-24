@@ -32,12 +32,12 @@ import {
   UserX,
   UserCheck,
 } from 'lucide-react';
-//testing vercel build
+
 // ============================================================
 // CONFIGURATION
 // ============================================================
 
-const API_BASE_URL = 'https://campusconnect-vhv0.onrender.com/api';
+const API_BASE_URL = 'http://localhost:5000/api';
 
 // ============================================================
 // REUSABLE UI COMPONENTS
@@ -452,7 +452,7 @@ const Avatar = ({
 export default function CampusConnectApp() {
   const [profile, setProfile] = useState(null);
   const [currentView, setCurrentView] = useState('landing');
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
   const [loading, setLoading] = useState(true);
 
   // ----------------------------------------------------------
@@ -821,7 +821,7 @@ export default function CampusConnectApp() {
 }
 
 // ============================================================
-// LANDING PAGE
+// LANDING PAGE — REFERENCE PORTFOLIO STYLE
 // ============================================================
 
 const LandingView = ({
@@ -829,190 +829,365 @@ const LandingView = ({
   darkMode,
   setDarkMode,
 }) => {
+  const scrollTo = (id) => {
+    document.getElementById(id)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  };
+
+  const openAuth = () => onNavigate('auth');
+
   return (
-    <div className="campus-landing">
-      <nav className="campus-landing-nav">
-        <div className="campus-container campus-nav-inner">
-          <div className="flex items-center gap-2">
-            <div className="campus-logo">
-                <img
-                src="/campusconnect-logo.webp"
-                alt="CampusConnect Logo"
-                className="campus-logo-image"
-                />
-            </div>
+    <div className="portfolio-site">
+      <div className="portfolio-network portfolio-network-a" />
+      <div className="portfolio-network portfolio-network-b" />
+      <div className="portfolio-orb portfolio-orb-a" />
+      <div className="portfolio-orb portfolio-orb-b" />
 
-            <span className="campus-brand-name">
-              <span className="campus-word">Campus</span>
-              <span className="connect-word">Connect</span>
-            </span>
-          </div>
+      <header className="portfolio-header">
+        <nav className="portfolio-nav" aria-label="Main navigation">
+          <button
+            className="portfolio-logo"
+            onClick={() => scrollTo('portfolio-home')}
+            aria-label="CampusConnect home"
+          >
+            <span className="portfolio-logo-mark">&lt;/&gt;</span>
+            <span>campus.</span>
+          </button>
 
-          <div className="flex items-center gap-4">
+          <div className="portfolio-nav-links">
             <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="campus-icon-button"
+              className="portfolio-nav-link portfolio-nav-active"
+              onClick={() => scrollTo('portfolio-home')}
             >
-              {darkMode ? (
-                <Sun className="w-5 h-5" />
-              ) : (
-                <Moon className="w-5 h-5" />
-              )}
+              Home
             </button>
 
-            <Button
-              variant="ghost"
-              onClick={() => onNavigate('auth')}
+            <div className="portfolio-dropdown">
+              <button className="portfolio-nav-link">
+                About <span className="portfolio-chevron"></span>
+              </button>
+              <div className="portfolio-dropdown-menu">
+                <button onClick={() => scrollTo('portfolio-about')}>
+                  About CampusConnect
+                </button>
+                <button onClick={() => scrollTo('portfolio-tech')}>
+                  Technologies
+                </button>
+              </div>
+            </div>
+
+            <button
+              className="portfolio-nav-link"
+              onClick={() => scrollTo('portfolio-works')}
             >
-              Login
-            </Button>
+              Works
+            </button>
 
-            <Button onClick={() => onNavigate('auth')}>
-              Join Now
-            </Button>
-          </div>
-        </div>
-      </nav>
-
-      <div
-        className="campus-container campus-hero"
-        style={{ position: 'relative', overflow: 'hidden' }}
-      >
-        <div
-          className="cc-blob"
-          style={{
-            width: '340px',
-            height: '340px',
-            top: '-80px',
-            left: '-60px',
-            background:
-              'radial-gradient(circle, var(--accent, #16836f), transparent 70%)',
-          }}
-        />
-
-        <div
-          className="cc-blob"
-          style={{
-            width: '260px',
-            height: '260px',
-            top: '40px',
-            right: '-40px',
-            background:
-              'radial-gradient(circle, var(--brand-coral, #ef756c), transparent 70%)',
-            animationDelay: '2s',
-          }}
-        />
-
-        <div
-          className="cc-blob"
-          style={{
-            width: '220px',
-            height: '220px',
-            bottom: '-60px',
-            left: '30%',
-            background:
-              'radial-gradient(circle, var(--warning, #c78a3b), transparent 70%)',
-            animationDelay: '4s',
-          }}
-        />
-
-        <div
-          className="campus-hero-content"
-          style={{ position: 'relative', zIndex: 1 }}
-        >
-          <div
-            className="campus-exclusive-badge cc-fade-up"
-            style={{ animationDelay: '0.05s' }}
-          >
-            <span className="campus-status-dot" />
-            Exclusive to Your University
+            <button
+              className="portfolio-nav-link"
+              onClick={() => scrollTo('portfolio-contact')}
+            >
+              Contact
+            </button>
           </div>
 
-          <h1
-            className="campus-hero-title cc-fade-up"
-            style={{ animationDelay: '0.15s' }}
-          >
-            The Ultimate
-            <br />
-            <span className="campus-gradient-text cc-gradient-text-animated">
-              Student Network
-            </span>
-          </h1>
-
-          <p
-            className="campus-hero-description cc-fade-up"
-            style={{ animationDelay: '0.28s' }}
-          >
-            Connect with peers, buy & sell on the
-            marketplace, access study notes, and discover
-            campus events all in one beautifully designed
-            platform.
-          </p>
-
-          <div
-            className="campus-hero-buttons cc-fade-up"
-            style={{ animationDelay: '0.4s' }}
-          >
-            <Button
-              size="lg"
-              className="w-full sm:w-auto gap-2 cc-glow-btn"
-              onClick={() => onNavigate('auth')}
+          <div className="portfolio-nav-actions">
+            <button
+              className="portfolio-social-mini"
+              onClick={openAuth}
+              aria-label="Login"
             >
-              Get Started
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-
-            <Button
-              variant="secondary"
-              size="lg"
-              className="w-full sm:w-auto"
-              onClick={() => onNavigate('auth')}
+              <UserPlus className="w-4 h-4" />
+            </button>
+            <button
+              className="portfolio-social-mini"
+              onClick={openAuth}
+              aria-label="Open CampusConnect"
             >
-              Explore Features
-            </Button>
+              <Users className="w-4 h-4" />
+            </button>
+            <span className="portfolio-divider" />
+            <button
+              className="portfolio-theme-toggle"
+              onClick={() => setDarkMode(!darkMode)}
+              aria-label="Toggle theme"
+            >
+              {darkMode ? (
+                <Sun className="w-4 h-4" />
+              ) : (
+                <Moon className="w-4 h-4" />
+              )}
+            </button>
           </div>
-        </div>
 
-        <div
-          className="campus-hero-preview cc-fade-up"
-          style={{
-            position: 'relative',
-            zIndex: 1,
-            animationDelay: '0.5s',
-          }}
-        >
-          <div className="campus-preview-glow" />
+          <button
+            className="portfolio-mobile-menu"
+            onClick={() => scrollTo('portfolio-contact')}
+            aria-label="Open menu"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        </nav>
+      </header>
 
-          <Card className="campus-preview-card">
-            <div className="campus-preview-user">
-              <Avatar
-                alt="Tamoghna"
-                size="md"
-                verified
-              />
+      <main>
+        <section id="portfolio-home" className="portfolio-hero-section">
+          <div className="portfolio-hero-copy">
+            <p className="portfolio-kicker">Hello, I&apos;m</p>
+            <h1>
+              Campus<span>Connect</span>
+            </h1>
+            <p className="portfolio-hero-description">
+              A beautifully designed student network that brings people,
+              opportunities, study resources, marketplace tools and campus
+              life together in one place.
+            </p>
 
+            <div className="portfolio-hero-buttons">
+              <button className="portfolio-coral-button" onClick={openAuth}>
+                GET STARTED
+                <Send className="w-4 h-4" />
+              </button>
+              <button
+                className="portfolio-outline-button"
+                onClick={() => scrollTo('portfolio-works')}
+              >
+                EXPLORE WORKS
+              </button>
+            </div>
+
+            <div className="portfolio-proof-row">
               <div>
-                <h3 className="campus-heading-small">
-                  Tamoghna
-                </h3>
-
-                <p className="campus-secondary-text">
-                  Computer Science • 2nd Year
-                </p>
+                <strong>01</strong>
+                <span>Connected campus</span>
+              </div>
+              <div>
+                <strong>04</strong>
+                <span>Core experiences</span>
+              </div>
+              <div>
+                <strong>24/7</strong>
+                <span>Always available</span>
               </div>
             </div>
+          </div>
 
-            <div className="space-y-3">
-              <div className="campus-skeleton w-3/4" />
-              <div className="campus-skeleton w-1/2" />
+          <div className="portfolio-hero-visual">
+            <div className="portfolio-profile-ring portfolio-campus-orbit">
+              <div className="portfolio-orbit-glow" />
+              <div className="portfolio-orbit-line portfolio-orbit-line-1" />
+              <div className="portfolio-orbit-line portfolio-orbit-line-2" />
+              <div className="portfolio-orbit-line portfolio-orbit-line-3" />
 
-              <div className="campus-image-placeholder">
-                <ImageIcon className="w-8 h-8 opacity-50" />
+              <div className="portfolio-orbit-dot orbit-dot-1" />
+              <div className="portfolio-orbit-dot orbit-dot-2" />
+              <div className="portfolio-orbit-dot orbit-dot-3" />
+              <div className="portfolio-orbit-dot orbit-dot-4" />
+
+              <div className="portfolio-campus-center">
+                <span>&lt;/&gt;</span>
+              </div>
+
+              <div className="portfolio-network-card network-card-top">
+                <div className="network-card-icon"><Users /></div>
+                <div>
+                  <strong>Find People</strong>
+                  <small>Connect with<br />students nearby</small>
+                </div>
+              </div>
+
+              <div className="portfolio-network-card network-card-left">
+                <div className="network-card-icon"><BookOpen /></div>
+                <div>
+                  <strong>Study Together</strong>
+                  <small>Share notes and<br />learn as a community</small>
+                </div>
+              </div>
+
+              <div className="portfolio-network-card network-card-right">
+                <div className="network-card-icon"><ShoppingBag /></div>
+                <div>
+                  <strong>Campus Market</strong>
+                  <small>Buy, sell and exchange<br />with ease</small>
+                </div>
+              </div>
+
+              <div className="portfolio-network-card network-card-bottom">
+                <div className="network-card-icon"><Calendar /></div>
+                <div>
+                  <strong>Campus Life</strong>
+                  <small>Events, updates and<br />campus activities</small>
+                </div>
               </div>
             </div>
-          </Card>
+          </div>
+        </section>
+
+        <section id="portfolio-about" className="portfolio-section">
+          <div className="portfolio-section-heading">
+            <p className="portfolio-kicker">About</p>
+            <h2>Designed to make campus life feel connected.</h2>
+          </div>
+          <div className="portfolio-about-grid">
+            <div className="portfolio-glass-card portfolio-about-card">
+              <span className="portfolio-card-number">01</span>
+              <h3>One place for everything</h3>
+              <p>
+                Find people, discover resources, buy and sell useful items,
+                and stay connected without jumping between different tools.
+              </p>
+            </div>
+            <div className="portfolio-glass-card portfolio-about-card">
+              <span className="portfolio-card-number">02</span>
+              <h3>Built around real users</h3>
+              <p>
+                The interface keeps important actions simple, visible and
+                responsive across desktop and mobile screens.
+              </p>
+            </div>
+            <div className="portfolio-glass-card portfolio-about-card">
+              <span className="portfolio-card-number">03</span>
+              <h3>Made for your campus</h3>
+              <p>
+                Verification, profiles, directory, marketplace, messaging and
+                campus information are brought into one consistent experience.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section id="portfolio-works" className="portfolio-section portfolio-works-section">
+          <div className="portfolio-section-heading centered">
+            <p className="portfolio-kicker">Works</p>
+            <h2>What you can do with CampusConnect</h2>
+          </div>
+
+          <div className="portfolio-work-grid">
+            <button className="portfolio-work-card" onClick={openAuth}>
+              <div className="portfolio-work-icon"><Users /></div>
+              <div>
+                <span>01 / CONNECT</span>
+                <h3>Student Directory</h3>
+                <p>Discover verified people and build meaningful campus connections.</p>
+              </div>
+              <ChevronRight className="portfolio-work-arrow" />
+            </button>
+
+            <button className="portfolio-work-card" onClick={openAuth}>
+              <div className="portfolio-work-icon"><ShoppingBag /></div>
+              <div>
+                <span>02 / MARKET</span>
+                <h3>Campus Marketplace</h3>
+                <p>Buy and sell books, calculators and useful campus essentials.</p>
+              </div>
+              <ChevronRight className="portfolio-work-arrow" />
+            </button>
+
+            <button className="portfolio-work-card" onClick={openAuth}>
+              <div className="portfolio-work-icon"><MessageSquare /></div>
+              <div>
+                <span>03 / CHAT</span>
+                <h3>Real Conversations</h3>
+                <p>Message accepted connections and keep your campus network active.</p>
+              </div>
+              <ChevronRight className="portfolio-work-arrow" />
+            </button>
+
+            <button className="portfolio-work-card" onClick={openAuth}>
+              <div className="portfolio-work-icon"><BookOpen /></div>
+              <div>
+                <span>04 / LEARN</span>
+                <h3>Notes & Events</h3>
+                <p>Keep study material and campus activities close to your everyday workflow.</p>
+              </div>
+              <ChevronRight className="portfolio-work-arrow" />
+            </button>
+          </div>
+        </section>
+
+        <section id="portfolio-tech" className="portfolio-tech-section">
+          <div>
+            <p className="portfolio-kicker">Technologies</p>
+            <h2>Simple tools. Strong experience.</h2>
+            <p className="portfolio-tech-copy">
+              The existing application already uses React, JavaScript, a
+              Node/Express API, MongoDB-backed data and Lucide icons. This new
+              visual layer changes the presentation without removing the
+              existing application flow.
+            </p>
+          </div>
+          <div className="portfolio-tech-list">
+            {['React', 'JavaScript', 'Node.js', 'MongoDB', 'UI / UX', 'Responsive CSS'].map(
+              (tech, index) => (
+                <span key={tech}>
+                  <b>0{index + 1}</b>
+                  {tech}
+                </span>
+              )
+            )}
+          </div>
+        </section>
+
+        <section id="portfolio-contact" className="portfolio-contact-section">
+          <div className="portfolio-contact-copy">
+            <p className="portfolio-kicker">Contact</p>
+            <h2>Let&apos;s work together!</h2>
+            <p>
+              Ready to explore the campus network? Join the platform and start
+              connecting with your university community.
+            </p>
+
+            <div className="portfolio-contact-links">
+              <button onClick={openAuth}><UserPlus /> Join CampusConnect</button>
+              <button onClick={() => scrollTo('portfolio-home')}><Home /> Back to home</button>
+              <button onClick={() => scrollTo('portfolio-works')}><Briefcase /> Explore works</button>
+            </div>
+          </div>
+
+          <div className="portfolio-contact-card">
+            <div className="portfolio-form-line">
+              <span>Email *</span>
+              <div>Enter your email</div>
+            </div>
+            <div className="portfolio-form-line">
+              <span>Name *</span>
+              <div>Enter your name</div>
+            </div>
+            <div className="portfolio-form-line">
+              <span>Phone *</span>
+              <div>Enter phone number</div>
+            </div>
+            <div className="portfolio-form-line portfolio-message-line">
+              <span>Message *</span>
+              <div>Write your message...</div>
+            </div>
+            <button className="portfolio-coral-button portfolio-send-button" onClick={openAuth}>
+              SEND MESSAGE <Send className="w-4 h-4" />
+            </button>
+          </div>
+        </section>
+      </main>
+
+      <footer className="portfolio-footer">
+        <div className="portfolio-footer-logo">
+          <span>&lt;/&gt;</span> campus.
         </div>
-      </div>
+        <div className="portfolio-footer-socials">
+          <span>in</span>
+          <span>f</span>
+          <span>gh</span>
+          <span>Be</span>
+        </div>
+        <div className="portfolio-footer-links">
+          <button onClick={() => scrollTo('portfolio-home')}>Home</button>
+          <button onClick={() => scrollTo('portfolio-about')}>About</button>
+          <button onClick={() => scrollTo('portfolio-tech')}>Technologies</button>
+          <button onClick={() => scrollTo('portfolio-works')}>Works</button>
+          <button onClick={() => scrollTo('portfolio-contact')}>Contact</button>
+        </div>
+      </footer>
     </div>
   );
 };
