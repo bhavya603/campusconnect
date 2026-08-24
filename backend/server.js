@@ -1,5 +1,14 @@
 require('dotenv').config();
 
+const dns = require('dns');
+
+// Render's network cannot reach some external services (like Gmail)
+// over IPv6 and fails with ENETUNREACH. Prefer IPv4 results
+// process-wide so this doesn't bite any other outbound connection.
+if (typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -280,6 +289,10 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER || '',
     pass: process.env.EMAIL_PASS || '',
   },
+
+  // Render's network can't reach Gmail over IPv6 (ENETUNREACH),
+  // so force plain IPv4 connections only.
+  family: 4,
 
   // Generous timeouts so a slow/cold Render network doesn't
   // give up before Gmail even responds
