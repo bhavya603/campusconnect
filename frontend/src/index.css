@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Space+Grotesk:wght@400..700&family=Inter:wght@400..800&display=swap');
+@import "tailwindcss";
 :root {
   /* ==========================================================
      MAIN COLORS
@@ -110,11 +112,17 @@
     Arial,
     sans-serif;
 
-  /* Elegant serif headings */
+  /* Expressive, characterful display serif for headings */
   --heading:
+    'Fraunces',
     Georgia,
     "Times New Roman",
     serif;
+
+  /* Modern geometric font for brand name / nav / buttons */
+  --display:
+    'Space Grotesk',
+    var(--sans);
 
   --mono:
     ui-monospace,

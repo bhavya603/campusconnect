@@ -12,7 +12,8 @@ if (typeof dns.setDefaultResultOrder === 'function') {
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const nodemailer = require('nodemailer');
+// nodemailer removed — Brevo's HTTP API is used for email instead
+// (Render's network cannot reliably reach Gmail's raw SMTP servers)
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -149,9 +150,10 @@ const otpSchema = new mongoose.Schema(
 
     // 'register' = normal student sign-up OTP
     // 'admin'    = admin login OTP (separate flow, separate whitelist)
+    // 'reset'    = forgot-password OTP
     purpose: {
       type: String,
-      enum: ['register', 'admin'],
+      enum: ['register', 'admin', 'reset'],
       default: 'register',
     },
 
@@ -277,92 +279,79 @@ function isAdminWhitelisted(email) {
 }
 
 // ==========================================
-// EMAIL TRANSPORTER
+// SEND OTP EMAIL (via Brevo HTTP API)
+// ==========================================
+//
+// Render's free-tier network cannot reliably reach Gmail's raw
+// SMTP servers (both IPv6 ENETUNREACH and IPv4 ETIMEDOUT were
+// observed) — this is a known limitation of many free cloud
+// hosts, not something fixable with SMTP settings. Sending over
+// a plain HTTPS API call (Brevo) sidesteps that networking issue
+// entirely, since normal outbound HTTPS (unlike raw SMTP
+// sockets) works fine on Render.
 // ==========================================
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // SSL — more reliable than STARTTLS (587) on flaky cloud networks
+async function sendOTPEmail(targetEmail, otpCode, purpose = 'register') {
+  const isReset = purpose === 'reset';
 
-  auth: {
-    user: process.env.EMAIL_USER || '',
-    pass: process.env.EMAIL_PASS || '',
-  },
+  if (process.env.EMAIL_USER && process.env.BREVO_API_KEY) {
+    const htmlContent = `
+      <div
+        style="
+          font-family: Arial, sans-serif;
+          padding: 20px;
+          color: #333;
+        "
+      >
 
-  // Render's network can't reach Gmail over IPv6 (ENETUNREACH),
-  // so force plain IPv4 connections only.
-  family: 4,
+        <h2 style="color: #4f46e5;">
+          CampusConnect ${isReset ? 'Password Reset' : 'Verification'}
+        </h2>
 
-  // Generous timeouts so a slow/cold Render network doesn't
-  // give up before Gmail even responds
-  connectionTimeout: 20000,
-  greetingTimeout: 20000,
-  socketTimeout: 20000,
+        <p>
+          ${
+            isReset
+              ? 'Use the OTP code below to reset your CampusConnect password:'
+              : 'Use the OTP code below to verify your Heritage Institute student account:'
+          }
+        </p>
 
-  // Reuse connections instead of opening a fresh one every time
-  pool: true,
-  maxConnections: 3,
-});
-
-// ==========================================
-// SEND OTP EMAIL
-// ==========================================
-
-async function sendOTPEmail(targetEmail, otpCode) {
-  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-    const mailOptions = {
-      from: `"CampusConnect Heritage" <${process.env.EMAIL_USER}>`,
-
-      to: targetEmail,
-
-      subject: 'Your CampusConnect Verification Code',
-
-      html: `
         <div
           style="
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            color: #333;
+            font-size: 28px;
+            font-weight: bold;
+            letter-spacing: 4px;
+            color: #4f46e5;
+            margin: 20px 0;
           "
         >
-
-          <h2 style="color: #4f46e5;">
-            CampusConnect Verification
-          </h2>
-
-          <p>
-            Use the OTP code below to verify your Heritage Institute
-            student account:
-          </p>
-
-          <div
-            style="
-              font-size: 28px;
-              font-weight: bold;
-              letter-spacing: 4px;
-              color: #4f46e5;
-              margin: 20px 0;
-            "
-          >
-            ${otpCode}
-          </div>
-
-          <p
-            style="
-              color: #666;
-              font-size: 12px;
-            "
-          >
-            This OTP is valid for 10 minutes.
-            Do not share this code with anyone.
-          </p>
-
+          ${otpCode}
         </div>
-      `,
-    };
 
-    await sendMailWithRetry(mailOptions);
+        <p
+          style="
+            color: #666;
+            font-size: 12px;
+          "
+        >
+          This OTP is valid for 10 minutes.
+          Do not share this code with anyone.
+        </p>
+
+      </div>
+    `;
+
+    await sendViaBrevoWithRetry({
+      sender: {
+        name: 'CampusConnect Heritage',
+        email: process.env.EMAIL_USER,
+      },
+      to: [{ email: targetEmail }],
+      subject: isReset
+        ? 'Your CampusConnect Password Reset Code'
+        : 'Your CampusConnect Verification Code',
+      htmlContent,
+    });
   } else {
     // Local development fallback
     console.log('\n========================================');
@@ -374,19 +363,31 @@ async function sendOTPEmail(targetEmail, otpCode) {
 }
 
 // ==========================================
-// SEND MAIL WITH ONE AUTOMATIC RETRY
-// ==========================================
-//
-// Render's free tier occasionally has a flaky/slow outbound
-// connection to Gmail's SMTP servers, causing an intermittent
-// ETIMEDOUT on the first attempt. Retrying once, a couple of
-// seconds later, resolves the vast majority of these cases
-// without the person having to click "Send OTP" again.
+// SEND VIA BREVO, WITH ONE AUTOMATIC RETRY
 // ==========================================
 
-async function sendMailWithRetry(mailOptions, attempt = 1) {
+async function sendViaBrevoWithRetry(payload, attempt = 1) {
   try {
-    await transporter.sendMail(mailOptions);
+    const response = await fetch(
+      'https://api.brevo.com/v3/smtp/email',
+      {
+        method: 'POST',
+        headers: {
+          'api-key': process.env.BREVO_API_KEY,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+
+      throw new Error(
+        `Brevo responded with ${response.status}: ${errorBody}`
+      );
+    }
   } catch (error) {
     if (attempt >= 2) {
       throw error;
@@ -398,7 +399,7 @@ async function sendMailWithRetry(mailOptions, attempt = 1) {
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    return sendMailWithRetry(mailOptions, attempt + 1);
+    return sendViaBrevoWithRetry(payload, attempt + 1);
   }
 }
 
@@ -446,12 +447,13 @@ app.post('/api/auth/send-otp', async (req, res) => {
     // EMAIL YEAR VALIDATION
     // ------------------------------------------
     //
-    // Expected email format:
+    // Actual Heritage email format:
     //
-    // 26xxxxxx@heritageit.edu.in
-    // 27xxxxxx@heritageit.edu.in
+    // firstname.lastname.branchYY@heritageit.edu.in
+    // e.g. saptarsha.ghosh.aiml29@heritageit.edu.in
     //
-    // First two digits represent the year.
+    // The last two digits (right before @) represent the
+    // admission year.
     //
     // 26 or greater = eligible
     // 25 or lower   = NOT VERIFIED
@@ -460,8 +462,8 @@ app.post('/api/auth/send-otp', async (req, res) => {
 
     const emailLocalPart = normalizedEmail.split('@')[0];
 
-    // Make sure the email starts with at least two digits
-    const yearMatch = emailLocalPart.match(/^(\d{2})/);
+    // Grab the last two digits of the local-part (e.g. "29" from "aiml29")
+    const yearMatch = emailLocalPart.match(/(\d{2})$/);
 
     if (!yearMatch) {
       return res.status(403).json({
@@ -632,7 +634,8 @@ app.post('/api/auth/register-verify', async (req, res) => {
 
     const emailLocalPart = normalizedEmail.split('@')[0];
 
-    const yearMatch = emailLocalPart.match(/^(\d{2})/);
+    // Grab the last two digits of the local-part (e.g. "29" from "aiml29")
+    const yearMatch = emailLocalPart.match(/(\d{2})$/);
 
     if (!yearMatch) {
       return res.status(403).json({
@@ -777,6 +780,125 @@ app.post('/api/auth/login', async (req, res) => {
 
     res.status(500).json({
       message: 'Login request failed.',
+      error: error.message,
+    });
+  }
+});
+
+// ==========================================
+// FORGOT PASSWORD ROUTES
+// ==========================================
+//
+// Two-step flow:
+//   1) /api/auth/forgot-password/send-otp -> checks a registered
+//      account exists for that email, then emails a one-time OTP
+//      (purpose: 'reset').
+//   2) /api/auth/forgot-password/reset    -> checks the OTP is
+//      valid, then overwrites the account password.
+//
+// ==========================================
+
+app.post('/api/auth/forgot-password/send-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        message: 'Email is required.',
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        message: 'No account found with this email address.',
+      });
+    }
+
+    const generatedOTP = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
+
+    await OTP.deleteMany({
+      email: normalizedEmail,
+      purpose: 'reset',
+    });
+
+    await OTP.create({
+      email: normalizedEmail,
+      otp: generatedOTP,
+      purpose: 'reset',
+    });
+
+    await sendOTPEmail(normalizedEmail, generatedOTP, 'reset');
+
+    res.status(200).json({
+      message: 'A password reset OTP has been sent to your email.',
+    });
+  } catch (error) {
+    console.error('Forgot Password Send OTP Error:', error);
+
+    res.status(500).json({
+      message: 'Failed to send password reset OTP.',
+      error: error.message,
+    });
+  }
+});
+
+app.post('/api/auth/forgot-password/reset', async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({
+        message: 'Email, OTP and new password are required.',
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const record = await OTP.findOne({
+      email: normalizedEmail,
+      otp: otp.trim(),
+      purpose: 'reset',
+    });
+
+    if (!record) {
+      return res.status(400).json({
+        message: 'Invalid or expired OTP code.',
+      });
+    }
+
+    const user = await User.findOneAndUpdate(
+      { email: normalizedEmail },
+      { password: newPassword },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: 'No account found with this email address.',
+      });
+    }
+
+    await OTP.deleteMany({
+      email: normalizedEmail,
+      purpose: 'reset',
+    });
+
+    res.status(200).json({
+      message: 'Password has been reset. You can now log in.',
+    });
+  } catch (error) {
+    console.error('Reset Password Error:', error);
+
+    res.status(500).json({
+      message: 'Failed to reset password.',
       error: error.message,
     });
   }
@@ -996,6 +1118,44 @@ app.get('/api/friends/:userId', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to fetch friends list.',
+      error: error.message,
+    });
+  }
+});
+
+// REMOVE an accepted friend connection (unfriend)
+// Deletes the accepted FriendRequest between the two users,
+// in either direction. Message history is left untouched.
+app.post('/api/friends/remove', async (req, res) => {
+  try {
+    const { userId, friendId } = req.body;
+
+    if (!userId || !friendId) {
+      return res.status(400).json({
+        message: 'userId and friendId are required.',
+      });
+    }
+
+    const result = await FriendRequest.deleteOne({
+      status: 'accepted',
+      $or: [
+        { from: userId, to: friendId },
+        { from: friendId, to: userId },
+      ],
+    });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        message: 'No connection found between these users.',
+      });
+    }
+
+    res.status(200).json({
+      message: 'Friend removed.',
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to remove friend.',
       error: error.message,
     });
   }
