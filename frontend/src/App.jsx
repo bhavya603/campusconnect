@@ -1421,7 +1421,7 @@ const AuthView = ({ onComplete, onBack, onAdminLogin }) => {
         setOtpSent(true);
 
         alert(
-          'OTP Sent! Check your backend terminal for the code.'
+          'OTP Sent! Please check your inbox or spam folder'
         );
 
         return;
@@ -1759,7 +1759,7 @@ const AuthView = ({ onComplete, onBack, onAdminLogin }) => {
               />
 
               <p className="campus-otp-help">
-                Check your backend terminal for the OTP
+                OTP has been sent to your college email
                 code.
               </p>
             </div>
