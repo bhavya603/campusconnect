@@ -1211,6 +1211,7 @@ const AuthView = ({ onComplete, onBack, onAdminLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  <img src="/campusconnect-logo.webp" alt="CampusConnect Logo" className="campus-auth-logo-image" />
 
   const [formData, setFormData] = useState({
     name: '',
@@ -1226,7 +1227,7 @@ const AuthView = ({ onComplete, onBack, onAdminLogin }) => {
   // Forgot password (separate mini-flow, own state so it never
   // clashes with the login/register form above)
   // ----------------------------------------------------------
-
+<img src="/campusconnect-logo.webp" alt="CampusConnect Logo" className="campus-auth-logo-image" />
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotStep, setForgotStep] = useState('email'); // 'email' | 'reset'
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -1287,6 +1288,7 @@ const AuthView = ({ onComplete, onBack, onAdminLogin }) => {
       setForgotError(err?.message || 'Something went wrong.');
     } finally {
       setForgotLoading(false);
+
     }
   };
 
