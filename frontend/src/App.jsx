@@ -4166,4 +4166,4 @@ const ComingSoonView = ({ currentView }) => {
       </p>
     </div>
   );
-};
+}
