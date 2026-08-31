@@ -1,5 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 
+// Imported (not a raw "/campusconnect-logo.webp" string) so Vite
+// bundles this file at build time with a hashed, guaranteed-correct
+// path. A plain string path only works if the file sits in
+// frontend/public/ — this works regardless of where the source
+// file lives, and survives production builds on Vercel.
+import campusConnectLogo from './assets/campusconnect-logo.webp';
+
 import {
   Menu,
   X,
@@ -30,6 +37,7 @@ import {
   Check,
   UserPlus,
   UserX,
+  UserCheck,
 } from 'lucide-react';
 
 // ============================================================
@@ -54,9 +62,13 @@ const Button = ({
 
   const variants = {
     primary: 'campus-button-primary',
+
     secondary: 'campus-button-secondary',
+
     ghost: 'campus-button-ghost',
+
     danger: 'campus-button-danger',
+
     glass: 'campus-button-glass',
   };
 
@@ -1473,7 +1485,7 @@ const AuthView = ({ onComplete, onBack, onAdminLogin }) => {
           <div className="text-center mb-8">
             <div className="campus-auth-logo">
               <img
-                src="/nav-logo.webp"
+                src={campusConnectLogo}
                 alt="CampusConnect Logo"
                 className="campus-auth-logo-image"
               />
@@ -1610,7 +1622,7 @@ const AuthView = ({ onComplete, onBack, onAdminLogin }) => {
         <div className="text-center mb-8">
           <div className="campus-auth-logo">
             <img
-              src="/nav-logo.webp"
+              src={campusConnectLogo}
               alt="CampusConnect Logo"
               className="campus-auth-logo-image"
              />
@@ -2164,7 +2176,7 @@ const AppLayout = ({
         <div className="campus-sidebar-header">
           <div className="campus-logo">
             <img
-              src="/nav-logo.webp"
+              src={campusConnectLogo}
               alt="CampusConnect Logo"
               className="campus-logo"
                />
@@ -2223,7 +2235,7 @@ const AppLayout = ({
       <div className="campus-mobile-header">
         <span className="font-bold text-lg flex items-center gap-2">
           <img
-             src="/nav-logo.webp"
+             src={campusConnectLogo}
              alt="CampusConnect Logo"
              className="campus-logo"
              />
@@ -4166,4 +4178,4 @@ const ComingSoonView = ({ currentView }) => {
       </p>
     </div>
   );
-}
+};
