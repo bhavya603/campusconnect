@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import logoImage from "../campusconnect-logo.webp";
-<img src={logoImage} alt="CampusConnect Logo" />
+import React, { useEffect, useState, useRef } from 'react';
 
 import {
   Menu,
@@ -32,7 +30,6 @@ import {
   Check,
   UserPlus,
   UserX,
-  UserCheck,
 } from 'lucide-react';
 
 // ============================================================
@@ -57,13 +54,9 @@ const Button = ({
 
   const variants = {
     primary: 'campus-button-primary',
-
     secondary: 'campus-button-secondary',
-
     ghost: 'campus-button-ghost',
-
     danger: 'campus-button-danger',
-
     glass: 'campus-button-glass',
   };
 
@@ -1211,7 +1204,6 @@ const AuthView = ({ onComplete, onBack, onAdminLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  <img src="/campusconnect-logo.webp" alt="CampusConnect Logo" className="campus-auth-logo-image" />
 
   const [formData, setFormData] = useState({
     name: '',
@@ -1227,7 +1219,7 @@ const AuthView = ({ onComplete, onBack, onAdminLogin }) => {
   // Forgot password (separate mini-flow, own state so it never
   // clashes with the login/register form above)
   // ----------------------------------------------------------
-<img src="/campusconnect-logo.webp" alt="CampusConnect Logo" className="campus-auth-logo-image" />
+
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotStep, setForgotStep] = useState('email'); // 'email' | 'reset'
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -1288,7 +1280,6 @@ const AuthView = ({ onComplete, onBack, onAdminLogin }) => {
       setForgotError(err?.message || 'Something went wrong.');
     } finally {
       setForgotLoading(false);
-
     }
   };
 
@@ -1482,7 +1473,7 @@ const AuthView = ({ onComplete, onBack, onAdminLogin }) => {
           <div className="text-center mb-8">
             <div className="campus-auth-logo">
               <img
-                src="/campusconnect-logo.webp"
+                src="/nav-logo.webp"
                 alt="CampusConnect Logo"
                 className="campus-auth-logo-image"
               />
@@ -1619,7 +1610,7 @@ const AuthView = ({ onComplete, onBack, onAdminLogin }) => {
         <div className="text-center mb-8">
           <div className="campus-auth-logo">
             <img
-              src="/campusconnect-logo.webp"
+              src="/nav-logo.webp"
               alt="CampusConnect Logo"
               className="campus-auth-logo-image"
              />
@@ -2173,7 +2164,7 @@ const AppLayout = ({
         <div className="campus-sidebar-header">
           <div className="campus-logo">
             <img
-              src="/campusconnect-logo.webp"
+              src="/nav-logo.webp"
               alt="CampusConnect Logo"
               className="campus-logo"
                />
@@ -2232,7 +2223,7 @@ const AppLayout = ({
       <div className="campus-mobile-header">
         <span className="font-bold text-lg flex items-center gap-2">
           <img
-             src="/campusconnect-logo.webp"
+             src="/nav-logo.webp"
              alt="CampusConnect Logo"
              className="campus-logo"
              />
